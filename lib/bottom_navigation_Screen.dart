@@ -7,8 +7,8 @@ import 'package:notes_sharing_application/const/images.dart';
 import 'package:notes_sharing_application/const/strings.dart';
 import 'package:notes_sharing_application/const/styles.dart';
 import 'package:notes_sharing_application/controlller/home_controller.dart';
-import 'package:notes_sharing_application/views/cart_screen/cart_screen.dart';
 import 'package:notes_sharing_application/views/categoryScrenn/category_screen.dart';
+import 'package:notes_sharing_application/views/favortite_Screens/favorite_screen.dart';
 import 'package:notes_sharing_application/views/home_Screen/home_screen.dart';
 import 'package:notes_sharing_application/views/profile_screen/profile_Screen.dart';
 import 'package:notes_sharing_application/widgets_common/exit_dialog.dart';
@@ -27,15 +27,15 @@ class _bottomnavigationscreenState extends State<bottomnavigationscreen> {
     print('the current id in Bottom navigation bar: ${controller.currentUserUid.value}');
     // init home controller
     var navBarItem = [
-      BottomNavigationBarItem(icon: Image.asset(icHome, width: 26), label: home ),
-      BottomNavigationBarItem(icon: Image.asset(icCategories, width: 26), label: myevent ),
-      BottomNavigationBarItem(icon: Image.asset(icCart, width: 26), label: cart),
-      BottomNavigationBarItem(icon: Image.asset(icProfile, width: 26), label: account ),
+      BottomNavigationBarItem(icon: Icon(Icons.home_outlined, size: 24,), label: 'Dashboard' ),
+      BottomNavigationBarItem(icon:Icon(Icons.space_dashboard_outlined, size: 24,), label: 'My Events' ),
+      BottomNavigationBarItem(icon: Icon(Icons.favorite_border, size: 24,), label: 'Favorites'),
+      BottomNavigationBarItem(icon:Icon(Icons.account_circle_outlined, size: 24,), label: 'Profile' ),
     ];
     var navBody = [
       HomeScreen(currentUserUid: controller.currentUserUid.value,),
       CategoryScreen(currentUserUid: controller.currentUserUid.value,),
-      CartScreen(currentUserUid: controller.currentUserUid.value),
+      FavoriteScreen(currentUserUid: controller.currentUserUid.value),
       ProfileScreen(currentUserUid: controller.currentUserUid.value,)
     ];
     return WillPopScope(

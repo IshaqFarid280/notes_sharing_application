@@ -26,15 +26,76 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
   final MapController _mapController = MapController();
   List<Marker> _userMarkers = [];
   double _range = 5.0; // Initial range in kilometers
+  LatLng? _searchedLocation;
 
-  Future<void> _getCurrentLocation() async {
+  // Future<void> _getCurrentLocation() async {
+  //
+  // }
+
+  Future<LatLng?> _getCurrentLocation() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    // Test if location services are enabled.
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      _showLocationServicesDialog();
+      return null;
+    }
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        return Future.error('Location permissions are denied.');
+      }
+    }
+
+    if (permission == LocationPermission.deniedForever) {
+      return Future.error(
+          'Location permissions are permanently denied, we cannot request permissions.');
+    }
+
+    // Position position = await Geolocator.getCurrentPosition();
     Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _selectedLocation =
           LatLng(widget.data['latitude'], widget.data['longitude']);
     });
+
+    return _selectedLocation;
   }
+
+  void _showLocationServicesDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Location Services Disabled'),
+          content: Text('Please enable location services to use this feature.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                Navigator.of(context).pop();
+                await Geolocator.openLocationSettings();
+              },
+              child: Text('Open Settings'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
 
   Future<void> _searchLocation(String query) async {
     setState(() {
@@ -79,13 +140,16 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
 
   void _selectLocationFromSearch(Location location, String address) {
     setState(() {
-      _selectedLocation = LatLng(location.latitude, location.longitude);
+      _searchedLocation = LatLng(location.latitude, location.longitude);
       _searchResults = [];
-      _getPlacemark(_selectedLocation!);
-      _mapController.move(_selectedLocation!,
-          13.0); // Move the map's center to the new location
+      if (_searchedLocation != null) {
+        _getPlacemark(_searchedLocation!);
+        _mapController?.move(_searchedLocation!, 13.0); // Move map's center here
+      }
     });
   }
+
+
 
   Future<void> _fetchUserMarkers() async {
     final userCollection = FirebaseFirestore.instance.collection('users');
@@ -161,11 +225,57 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
 
     return polygon;
   }
-  void _showBottomSheet() {
+
+  void _showBottomSheet(List<Map<String, dynamic>> usersInRange) {
     showModalBottomSheet(
       context: context,
-      builder: (context) => BottomSheetToSendNotificationScreen(),
+      builder: (context) => BottomSheetToSendNotificationScreen(usersInRange: usersInRange, eventdata: widget.data,),
     );
+  }
+  Future<List<Map<String, dynamic>>> _fetchUsersWithinRange(LatLng center, double rangeKm) async {
+    final userCollection = FirebaseFirestore.instance.collection('users');
+    final userDocs = await userCollection.get();
+
+    List<Map<String, dynamic>> usersInRange = [];
+    for (var doc in userDocs.docs) {
+      final userdata = doc.data();
+      if (userdata.containsKey('latitude') && userdata.containsKey('longitude')) {
+        final double latitude = double.parse(userdata['latitude'].toString());
+        final double longitude = double.parse(userdata['longitude'].toString());
+        final LatLng position = LatLng(latitude, longitude);
+
+        final double distance = _calculateDistance(center, position);
+        if (distance <= rangeKm) {
+          usersInRange.add({
+            'id': doc.id,
+            'name': userdata['name'],
+            'latitude': latitude,
+            'longitude': longitude,
+            'token': userdata['token'],
+          });
+        }
+      }
+    }
+    return usersInRange;
+  }
+
+  double _calculateDistance(LatLng start, LatLng end) {
+    final double distance = Geolocator.distanceBetween(
+      start.latitude,
+      start.longitude,
+      end.latitude,
+      end.longitude,
+    );
+    return distance / 1000; // Convert to kilometers
+  }
+
+  void _onSendNotification() async {
+    if (_selectedLocation != null) {
+      final usersInRange = await _fetchUsersWithinRange(_selectedLocation!, _range);
+      _showBottomSheet(usersInRange);
+    } else {
+      print('No location selected');
+    }
   }
 
 
@@ -173,17 +283,15 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
-        // extendedPadding: EdgeInsets.zero,
-
-
-
-        onPressed: _showBottomSheet,
+        onPressed: _onSendNotification,
         label: normalText(text: 'Send Notification', color: whiteColor),
         icon: Icon(Icons.send, color: whiteColor,),
         backgroundColor: Colors.blue.withOpacity(0.6),
       ),
+
       appBar: AppBar(
         title: Text('Event Notification'),
+
       ),
       body: Column(
         children: [
@@ -195,7 +303,18 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     labelText: 'Search Location',
-                    suffixIcon: IconButton(
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                      icon: Icon(Icons.clear),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          _isSearching = false;
+                          _searchResults = [];
+                        });
+                      },
+                    )
+                        : IconButton(
                       icon: Icon(Icons.search),
                       onPressed: () {
                         _searchLocation(_searchController.text);
@@ -203,18 +322,20 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
                     ),
                   ),
                   onChanged: (value) {
-                    if (value.isNotEmpty) {
-                      _searchLocation(value);
-                    } else {
-                      setState(() {
+                    setState(() {
+                      _isSearching = value.isNotEmpty;
+                      if (value.isNotEmpty) {
+                        _searchLocation(value);
+                      } else {
                         _searchResults = [];
-                      });
-                    }
+                      }
+                    });
                   },
                 ),
+
                 if (_isSearching) LinearProgressIndicator(),
                 if (_searchResults.isNotEmpty)
-                  Container(
+                Container(
                     height: MediaQuery.of(context).size.height * 0.25,
                     child: ListView.builder(
                       itemCount: _searchResults.length,
@@ -295,6 +416,14 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
                               borderStrokeWidth: 2.0,
                               color: Colors.blue.withOpacity(0.2),
                             ),
+                          // if (_searchedLocation != null)
+                          //   Polygon(
+                          //     points:
+                          //         _createPolygon(_searchedLocation!, _range),
+                          //     borderColor: Colors.blue,
+                          //     borderStrokeWidth: 2.0,
+                          //     color: Colors.blue.withOpacity(0.2),
+                          //   ),
                         ],
                       ),
                       MarkerLayer(
@@ -307,6 +436,17 @@ class _NotifyAllUsersScreenState extends State<NotifyAllUsersScreen> {
                               child: Icon(
                                 Icons.location_on,
                                 color: Colors.red,
+                                size: 40,
+                              ),
+                            ),
+                          if (_searchedLocation != null)
+                            Marker(
+                              width: 80.0,
+                              height: 80.0,
+                              point: _searchedLocation!,
+                              child: Icon(
+                                Icons.location_searching,
+                                color: Colors.green,
                                 size: 40,
                               ),
                             ),

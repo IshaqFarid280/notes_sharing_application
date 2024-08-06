@@ -12,12 +12,13 @@ Widget categorywidget(
     String date,
     Color colors,
     Color containerColor,
-    String imageUrl, // Add imageUrl parameter
+    String imageUrl,
     BuildContext context,
-
     String location,
     VoidCallback notificationbuttonONTAP,
+    VoidCallback interestedbuttonONTAP,
     IconData iconData,
+    String interestedbuttontext,
     ) {
   return Padding(
     padding: const EdgeInsets.only(top: 8.0),
@@ -69,18 +70,11 @@ Widget categorywidget(
                     Text(
                       text,
                       style: TextStyle(
-                        color: darkFontGrey,
-                        fontSize: 18.0,
-                        fontWeight: FontWeight.bold
+                          color: darkFontGrey,
+                          fontSize: 18.0,
+                          fontWeight: FontWeight.bold
                       ),
                     ),
-                    // Text(
-                    //   description,
-                    //   style: TextStyle(
-                    //     color: darkFontGrey,
-                    //     fontSize: 12.0,
-                    //   ),
-                    // ),
                     Text(
                       location,
                       style: TextStyle(
@@ -91,27 +85,28 @@ Widget categorywidget(
                     Row(
                       children: [
                         Text(
-                          interested,
+                          '${interested} interested * ',
                           style: TextStyle(
-                            color: darkFontGrey,
+                            color: darkFontGrey.withOpacity(0.6),
                             fontSize: 11.0,
                           ),
                         ),
                         Text(
                           '${going} going',
                           style: TextStyle(
-                            color: darkFontGrey,
+                            color: darkFontGrey.withOpacity(0.6),
                             fontSize: 11.0,
                           ),
                         ),
+
                       ],
                     ),
                     customButton(
                       buttonColors: Colors.grey.withOpacity(0.4),
                       isfavorite: true,
                       widths: 0.7,
-                      intrestedbuttonontap: () {},
-                      text: 'Interested',
+                      intrestedbuttonontap: interestedbuttonONTAP,
+                      text: interestedbuttontext,
                       icondata: iconData,
                       favoritebuttonontap: notificationbuttonONTAP,
                     ),

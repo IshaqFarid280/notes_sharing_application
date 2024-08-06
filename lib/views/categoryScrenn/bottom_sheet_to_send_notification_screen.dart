@@ -7,8 +7,13 @@ import 'package:notes_sharing_application/widgets_common/our_button.dart';
 import '../../services/notification_sevices.dart';
 
 class BottomSheetToSendNotificationScreen extends StatefulWidget {
+  final List<Map<String, dynamic>> usersInRange;
+  final dynamic eventdata;
+
   const BottomSheetToSendNotificationScreen({
     Key? key,
+    required this.usersInRange,
+    required this.eventdata,
   }) : super(key: key);
 
   @override
@@ -43,6 +48,7 @@ class _BottomSheetToSendNotificationScreenState
 
   @override
   Widget build(BuildContext context) {
+    print(widget.usersInRange);
     return Column(
       children: [
         Padding(
@@ -52,10 +58,12 @@ class _BottomSheetToSendNotificationScreenState
             children: [
               InkWell(
                 onTap: () async {
-                  // Call the sendNotificationToAllUsers method
+
                   await _notificationServices.sendNotificationToAllUsers(
-                    'Notification Title', // Replace with your title
-                    'Notification Body', // Replace with your body
+
+                    widget.usersInRange,
+                    '${widget.eventdata['title']} event',
+                    'A new Event is happening is Happening. Come Join us',
                   );
                 },
                 child: Container(
@@ -81,44 +89,25 @@ class _BottomSheetToSendNotificationScreenState
         ),
         Container(
           height: MediaQuery.of(context).size.height * 0.5, // Adjust height as needed
-          child: StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance.collection('users').snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
+          child: ListView.builder(
+            itemCount: widget.usersInRange.length,
+            itemBuilder: (context, index) {
+              final user = widget.usersInRange[index];
+              final LatLng location = LatLng(user['latitude'], user['longitude']);
+
+              if (!_addresses.containsKey(index)) {
+                _getPlacemark(index, location);
               }
 
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text('No users available'));
-              }
-
-              final users = snapshot.data!.docs;
-              return ListView.builder(
-                itemCount: users.length,
-                itemBuilder: (context, index) {
-                  final user = users[index].data() as Map<String, dynamic>;
-                  final double latitude = double.parse(user['latitude'].toString());
-                  final double longitude = double.parse(user['longitude'].toString());
-                  final String name = user['name'] ?? 'Unknown';
-                  final LatLng location = LatLng(latitude, longitude);
-
-                  if (!_addresses.containsKey(index)) {
-                    _getPlacemark(index, location);
-                  }
-                  print('the user name: ${user['name']}');
-                  print('the user token: ${user['token']}');
-
-                  return ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.black.withOpacity(0.2),
-                      child: Icon(Icons.person, color: Colors.white),
-                    ),
-                    title: Text(name),
-                    subtitle: Text(_addresses[index] ?? 'Fetching address...'),
-                    onTap: () {
-                      // Handle user selection
-                    },
-                  );
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Colors.black.withOpacity(0.2),
+                  child: Icon(Icons.person, color: Colors.white),
+                ),
+                title: Text(user['name']),
+                subtitle: Text(_addresses[index] ?? 'Fetching address...'),
+                onTap: () {
+                  // Handle user selection
                 },
               );
             },

@@ -73,9 +73,9 @@ class EventController extends GetxController {
         'longitude': longitude,
         'locationevent': location,
         'images': imageUrls.isEmpty ? ['https://via.placeholder.com/150'] : imageUrls,
-        'invitedUsers': [],
+        'isfavorite': [],
         'notifications': [],
-        'posts': [],
+        'goingusers': [],
         'eventDetails': description,
         'eventName': title,
       });
@@ -83,6 +83,49 @@ class EventController extends GetxController {
       print('Error posting event: $e');
     } finally {
       isLoadingindicaator.value = false;
+    }
+  }
+  Future<void> toggleInterest(String eventId, String userId) async {
+    try {
+      final eventRef = FirebaseFirestore.instance.collection('events').doc(eventId);
+
+      final eventSnapshot = await eventRef.get();
+      if (eventSnapshot.exists) {
+        final eventData = eventSnapshot.data() as Map<String, dynamic>;
+        final List<dynamic> invitedUsers = eventData['isfavorite'] ?? [];
+
+        if (invitedUsers.contains(userId)) {
+          invitedUsers.remove(userId);
+        } else {
+          invitedUsers.add(userId);
+        }
+
+        await eventRef.update({'isfavorite': invitedUsers});
+      }
+    } catch (e) {
+      print('Error updating interest: $e');
+    }
+  }
+
+  Future<void> toggleGoing(String eventId, String userId) async {
+    try {
+      final eventRef = FirebaseFirestore.instance.collection('events').doc(eventId);
+
+      final eventSnapshot = await eventRef.get();
+      if (eventSnapshot.exists) {
+        final eventData = eventSnapshot.data() as Map<String, dynamic>;
+        final List<dynamic> goingUsers = eventData['goingusers'] ?? [];
+
+        if (goingUsers.contains(userId)) {
+          goingUsers.remove(userId);
+        } else {
+          goingUsers.add(userId);
+        }
+
+        await eventRef.update({'goingusers': goingUsers});
+      }
+    } catch (e) {
+      print('Error updating interest: $e');
     }
   }
 

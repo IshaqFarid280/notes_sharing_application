@@ -1,11 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:intl/intl.dart';
 import 'package:notes_sharing_application/const/firebase_const.dart';
 import 'package:notes_sharing_application/views/categoryScrenn/notify_all_users_Screen.dart';
-import 'package:notes_sharing_application/views/home_Screen/add_new_subject_screen.dart';
 import 'package:notes_sharing_application/views/home_Screen/view_subject_screen.dart';
 import 'package:notes_sharing_application/widgets_common/categories_widget.dart';
 import 'package:notes_sharing_application/widgets_common/our_button.dart';
@@ -40,69 +38,132 @@ class CategoryScreen extends StatelessWidget {
             return Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
+            return Image.asset(
+              'assets/slowconnections.jpeg',
+              width: MediaQuery.of(context).size.width * 1,
+              height: MediaQuery.of(context).size.height * 0.5,
+              fit: BoxFit.contain,
+            );
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text('No events found.'));
+            return Center(
+              child: Image.asset(
+                'assets/myeventEMPTY.jpeg',
+                width: MediaQuery.of(context).size.width * 1,
+                height: MediaQuery.of(context).size.height * 0.5,
+                fit: BoxFit.contain,
+              ),
+            );
+          }
+
+          var userCreatedEvents = snapshot.data!.docs.where((document) {
+            final data = document.data() as Map<String, dynamic>;
+            return data['createdBy'] == currentUserUid;
+          }).toList();
+
+          if (userCreatedEvents.isEmpty) {
+            return Center(
+              child: Image.asset(
+                'assets/myeventEMPTY.jpeg',
+                width: MediaQuery.of(context).size.width * 1,
+                height: MediaQuery.of(context).size.height * 0.5,
+                fit: BoxFit.contain,
+              ),
+            );
           }
 
           return SingleChildScrollView(
-            child: Column(
-              children: snapshot.data!.docs.map((document) {
-                final data = document.data() as Map<String, dynamic>;
-                final dateTime = (data['dateTime'] as Timestamp).toDate();
-                final formattedDateTime =
-                    DateFormat('yyyy-MM-dd – kk:mm').format(dateTime);
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: userCreatedEvents.map((document) {
+                  final data = document.data() as Map<String, dynamic>;
+                  final dateTime = (data['dateTime'] as Timestamp).toDate();
+                  final formattedDateTime =
+                  DateFormat('yyyy-MM-dd – kk:mm').format(dateTime);
 
-                return data['createdBy'] == currentUserUid
-                    ? Center(
-                        child: categorywidget(
-                          () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ViewSubjectScreen(
-                                  title: data['title'] ?? 'No Title',
-                                  interested: data['interested'] ?? 'N/A',
-                                  going: data['going'] ?? 'N/A',
-                                  description:
-                                      data['description'] ?? 'No Description',
-                                  dateTime: formattedDateTime,
-                                  imageUrl: data['images'][0] ?? '',
-                                  location:
-                                      data['locationevent'] ?? 'No Location',
-                                  organizer: data['organizer'] ?? 'Unknown',
-                                ),
+                  final int invitedUserLength = (data['isfavorite'] as List).length;
+                  final int isGoingLength = (data['goingusers'] as List).length;
+                  final bool isGoing =
+                  (data['goingusers'] as List).contains(currentUserUid);
+
+                  return GestureDetector(
+                    onLongPress: () async {
+                      bool? confirmDelete = await showDialog(
+                        context: context,
+                        builder: (BuildContext context) {
+                          return AlertDialog(
+                            title: Text("Delete Event"),
+                            content: Text("Are you sure you want to delete this event?"),
+                            actions: <Widget>[
+                              TextButton(
+                                child: Text("Cancel"),
+                                onPressed: () {
+                                  Navigator.of(context).pop(false);
+                                },
                               ),
-                            );
-                          },
-                          Icons.add,
-                          data['title'] ?? 'No Title',
-                          data['interested'] ?? 'N/A',
-                          data['going'] ?? 'N/A',
-                          data['description'] ?? 'No Description',
-                          formattedDateTime,
-                          Colors.black,
-                          Colors.white,
-                          data['images'][0] ?? '', // Pass the imageUrl here
-                          context,
-                          data['locationevent'] ?? 'N/A',
+                              TextButton(
+                                child: Text("Delete"),
+                                onPressed: () {
+                                  Navigator.of(context).pop(true);
+                                },
+                              ),
+                            ],
+                          );
+                        },
+                      );
+
+                      if (confirmDelete == true) {
+                        await firestore.collection('events').doc(document.id).delete();
+                        Get.snackbar("Event Deleted", "Your event has been deleted successfully.");
+                      }
+                    },
+                    child: categorywidget(
                           () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        NotifyAllUsersScreen(data: data,)));
-                          },
-                          Icons.notifications,
-                        ),
-                      )
-                    : Center(
-                        child: Container(
-                        child: normalText(
-                            text: "Not any Event Created", size: 25.0),
-                      ));
-              }).toList(),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ViewSubjectScreen(
+                              title: data['title'] ?? 'No Title',
+                              interested: data['interested'] ?? 'N/A',
+                              going: data['going'] ?? 'N/A',
+                              description: data['description'] ?? 'No Description',
+                              dateTime: formattedDateTime,
+                              imageUrl: data['images'][0] ?? '',
+                              location: data['locationevent'] ?? 'No Location',
+                              organizer: data['organizer'] ?? 'Unknown',
+                            ),
+                          ),
+                        );
+                      },
+                      Icons.add,
+                      data['title'] ?? 'No Title',
+                      invitedUserLength.toString(),
+                      isGoingLength.toString(),
+                      data['description'] ?? 'No Description',
+                      formattedDateTime,
+                      Colors.black,
+                      Colors.white,
+                      data['images'][0] ?? '',
+                      context,
+                      data['locationevent'] ?? 'N/A',
+                          () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => NotifyAllUsersScreen(
+                              data: data,
+                            ),
+                          ),
+                        );
+                      },
+                          () {},
+                      Icons.notifications,
+                      isGoing ? 'You are Going' : 'Going',
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
           );
         },

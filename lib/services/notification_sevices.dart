@@ -11,11 +11,9 @@ import 'package:notes_sharing_application/const/firebase_constants.dart';
 import 'package:notes_sharing_application/views/auth_screen/login.dart';
 
 class NotificationServices {
-  final String fireBaseEndPoint =
-      'https://www.googleapis.com/auth/firebase.messaging';
+  final String fireBaseEndPoint = 'https://www.googleapis.com/auth/firebase.messaging';
   FirebaseMessaging messaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
-  FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   Future<void> requestNotificationPermission() async {
     NotificationSettings settings = await messaging.requestPermission(
@@ -29,8 +27,7 @@ class NotificationServices {
     );
     if (settings.authorizationStatus == AuthorizationStatus.authorized) {
       print('User granted permission');
-    } else if (settings.authorizationStatus ==
-        AuthorizationStatus.provisional) {
+    } else if (settings.authorizationStatus == AuthorizationStatus.provisional) {
       print('User granted provisional permission');
     } else {
       print('User denied permission');
@@ -44,10 +41,8 @@ class NotificationServices {
     });
   }
 
-  Future<void> initLocalNotification(
-      BuildContext context, RemoteMessage message) async {
-    var androidInitializationSettings =
-    const AndroidInitializationSettings('@mipmap/ic_launcher');
+  Future<void> initLocalNotification(BuildContext context, RemoteMessage message) async {
+    var androidInitializationSettings = const AndroidInitializationSettings('@mipmap/ic_launcher');
     var iosInitializationSettings = const DarwinInitializationSettings();
     var initializationSetting = InitializationSettings(
       android: androidInitializationSettings,
@@ -70,8 +65,7 @@ class NotificationServices {
       importance: Importance.max,
     );
 
-    AndroidNotificationDetails androidNotificationDetails =
-    AndroidNotificationDetails(
+    AndroidNotificationDetails androidNotificationDetails = AndroidNotificationDetails(
       channel.id,
       channel.name,
       icon: '@mipmap/ic_launcher', // Replace with your app's launcher icon,
@@ -90,8 +84,7 @@ class NotificationServices {
       channelShowBadge: true,
     );
 
-    DarwinNotificationDetails darwinNotificationDetails =
-    const DarwinNotificationDetails(
+    DarwinNotificationDetails darwinNotificationDetails = const DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: true,
@@ -115,31 +108,31 @@ class NotificationServices {
     return await messaging.getToken();
   }
 
-
   Future<void> saveTokenToFirestore(String token) async {
     await FirebaseFirestore.instance.collection('users').doc(currentUser!.uid).update({'token': token});
   }
 
+  Future<void> sendNotificationToAllUsers(List<Map<String, dynamic>> usersInRange, String title, String body) async {
+    Map<String, String> allUserTokens = await _getAllUserTokens();
 
-  Future<void> sendNotificationToAllUsers(String title, String body) async {
-    List<String> tokens = await _getAllUserTokens();
     String accessToken = await getAccessToken();
 
-    for (String token in tokens) {
-      await _sendNotification(token, title, body, accessToken);
+    for (var user in usersInRange) {
+      if (allUserTokens.containsKey(user['id'])) {
+        String token = allUserTokens[user['id']]!;
+        await _sendNotification(token, title, body, accessToken);
+      }
     }
   }
 
-  Future<List<String>> _getAllUserTokens() async {
-    List<String> tokens = [];
+  Future<Map<String, String>> _getAllUserTokens() async {
+    Map<String, String> tokens = {};
     try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .get();
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance.collection('users').get();
       for (var doc in querySnapshot.docs) {
         String? token = doc.get('token');
         if (token != null) {
-          tokens.add(token);
+          tokens[doc.id] = token;
         }
       }
     } catch (e) {
